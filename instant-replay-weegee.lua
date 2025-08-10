@@ -7,7 +7,7 @@ last_replay = ""
 max_attempts= 10
 interval    = 1000
 vlc_replace = false
-display_text_source_name = "" -- PsioNick edit
+attached_source_names = {} -- PsioNick edit
 
 ----------------------------------------------------------
 
@@ -27,6 +27,36 @@ function remove_replay_path()
 end
 
 -- PsioNick edit
+function toggle_visibility_of_attached_sources(visible)
+	local scene_source = obs.obs_frontend_get_current_scene()
+	local scene = obs.obs_scene_from_source(scene_source)
+
+	-- Probably should use uuids instead of names due to duplicate names for sources
+	local sources = obs.obs_enum_sources()
+	if sources ~= nil then
+		for _, source in ipairs(sources) do
+			local source_name = obs.obs_source_get_name(source)
+			for i = 0, obs.obs_data_array_count(attached_source_names) do
+				local data = obs.obs_data_array_item(attached_source_names, i)
+
+				local attached_source_name = obs.obs_data_get_string(data, "value")
+				if source_name == attached_source_name then
+					local attached_scene_item = obs.obs_scene_sceneitem_from_source(scene, source)
+					obs.obs_sceneitem_set_visible(attached_scene_item, visible)
+					obs.obs_source_update(source, nil)
+
+					obs.obs_sceneitem_release(attached_scene_item)
+				end
+
+				obs.obs_data_release(data)
+			end
+		end
+	end
+	obs.source_list_release(sources)
+	obs.obs_source_release(scene_source)
+end
+
+-- PsioNick edit
 -- https://obsproject.com/forum/threads/trigger-after-media-source-playback-ends.118986/post-447832
 function script_tick(seconds)
 	-- If video playback has ended this tick, hide the attached source
@@ -36,31 +66,8 @@ function script_tick(seconds)
         if last_state ~= state then
             last_state = state
             if state == obs.OBS_MEDIA_STATE_STOPPED or state == obs.OBS_MEDIA_STATE_ENDED then
-                -- local scene_source = obs.obs_get_source_by_name(scene_name)
-                -- if scene_source ~= nil then
-                --     obs.obs_frontend_set_current_scene(scene_source)
-                -- end
-
-				local scene_source = obs.obs_frontend_get_current_scene()
-				local scene = obs.obs_scene_from_source(scene_source)
-				if display_text_source_name ~= "" then
-					local text_source = obs.obs_get_source_by_name(display_text_source_name)
-					if text_source == nil then
-						return
-					end
-					-- Use obs_scene_enum_items() instead due to multiple sources having the same name
-					local text_sceneitem = obs.obs_scene_sceneitem_from_source(scene, text_source)
-					if text_sceneitem == nil then
-						return
-					end
-					obs.obs_sceneitem_set_visible(text_sceneitem, false)
-					remove_replay_path()
-					obs.obs_source_update(text_source, nil)
-
-					obs.obs_source_release(text_source)
-					obs.obs_sceneitem_release(text_sceneitem)
-				end
-				obs.obs_source_release(scene_source)
+				toggle_visibility_of_attached_sources(false)
+				remove_replay_path()
             end
         end
     end
@@ -101,12 +108,6 @@ function try_play()
 		local source = obs.obs_get_source_by_name(source_name)
 
 		if source ~= nil then
-			-- PsioNick edit
-			local scene_source = obs.obs_frontend_get_current_scene()
-			local scene = obs.obs_scene_from_source(scene_source)
-			local text_source = obs.obs_get_source_by_name(display_text_source_name)
-			local text_sceneitem = obs.obs_scene_sceneitem_from_source(scene, text_source)
-
 			local settings = obs.obs_data_create()
 			source_id = obs.obs_source_get_id(source)
 			if source_id == "ffmpeg_source" then
@@ -117,13 +118,7 @@ function try_play()
 				-- refresh if the source is currently active
 				obs.obs_source_update(source, settings)
 
-				-- PsioNick edit
-				if text_source ~= nil then
-					obs.obs_sceneitem_set_visible(text_sceneitem, true)
-					obs.obs_source_update(text_source, nil)
-				else
-					obs.script_log(obs.LOG_INFO, "Tried to show instant replay text, but couldn't find the source.")
-				end
+				toggle_visibility_of_attached_sources(true) -- PsioNick edit
 			elseif source_id == "vlc_source" then
 				-- "playlist"
 				local array
@@ -146,13 +141,7 @@ function try_play()
 				-- refresh if the source is currently active
 				obs.obs_source_update(source, settings)
 
-				-- PsioNick edit
-				if text_source ~= nil then
-					obs.obs_sceneitem_set_visible(text_sceneitem, true)
-					obs.obs_source_update(text_source, nil)
-				else
-					obs.script_log(obs.LOG_INFO, "Tried to show instant replay text, but couldn't find the source.")
-				end
+				toggle_visibility_of_attached_sources(true) -- PsioNick edit
 
 				obs.obs_data_release(item)
 				obs.obs_data_array_release(array)
@@ -160,10 +149,6 @@ function try_play()
 
 			obs.obs_data_release(settings)
 			obs.obs_source_release(source)
-			-- PsioNick edit
-			obs.obs_source_release(scene_source)
-			obs.obs_source_release(text_source)
-			obs.obs_sceneitem_release(text_sceneitem)
 		end
 
 		obs.remove_current_callback()
@@ -219,7 +204,8 @@ end
 -- A function named script_update will be called when settings are changed
 function script_update(settings)
 	source_name = obs.obs_data_get_string(settings, "source")
-	display_text_source_name = obs.obs_data_get_string(settings, "display_text_source") -- PsioNick edit
+	-- Memory leak? Might be incrementing references too much
+	attached_source_names = obs.obs_data_get_array(settings, "attached_sources") -- PsioNick edit
 	interval = obs.obs_data_get_int(settings, "interval")
 	max_attempts = obs.obs_data_get_int(settings, "max_attempts")
 	vlc_replace = obs.obs_data_get_bool(settings, "vlc_replace")
@@ -228,7 +214,7 @@ end
 -- A function named script_description returns the description shown to
 -- the user
 function script_description()
-	return "When the \"Instant Replay\" hotkey is triggered, saves a replay with the replay buffer, and then plays it in a media source as soon as the replay is ready.  Requires an active replay buffer.\n\nMade by Jim and Exeldro"
+	return "When the \"Instant Replay\" hotkey is triggered, saves a replay with the replay buffer, and then plays it in a media source as soon as the replay is ready.  Requires an active replay buffer. You can also attach any number of sources to the replay; they will all disappear when the playback ends.\n\nMade by Jim and Exeldro, edited by PsioNick"
 end
 
 -- A function named script_properties defines the properties that the user
@@ -255,15 +241,13 @@ function script_properties()
 	obs.source_list_release(sources)
 
 	-- PsioNick edit
-	-- Meant for text, but probably can attach any other source to the instant replay
-	local display_text_prop = obs.obs_properties_add_list(props, "display_text_source", "Displayed Text Source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+	local attached_sources_prop = obs.obs_properties_add_editable_list(props, "attached_sources", "Attached sources", obs.OBS_EDITABLE_LIST_TYPE_STRINGS, nil, nil)
+	-- This part doesn't seem to do anything. Maybe see what property groups do to see if it's possible to have dropdowns for multiple sources
 	local sources = obs.obs_enum_sources()
 	if sources ~= nil then
 		for _, source in ipairs(sources) do
-			source_id = obs.obs_source_get_id(source)
-			--obs.script_log(obs.LOG_INFO, source_id)
 			local name = obs.obs_source_get_name(source)
-			obs.obs_property_list_add_string(display_text_prop, name, name)
+			obs.obs_property_list_add_string(attached_sources_prop, name, name)
 		end
 	end
 	obs.source_list_release(sources)
@@ -296,8 +280,10 @@ end
 -- PsioNick edit
 function script_unload()
 	-- Originally I just had this here, but it wasn't removing the path when shutting down OBS,
-	-- so I remove it when the video ends as well
+	-- so I remove it when the video ends as well in script_tick()
 	remove_replay_path()
+
+	obs.obs_data_array_release(attached_source_names)
 end
 
 -- A function named script_save will be called when the script is saved
