@@ -11,6 +11,47 @@ display_text_source_name = "" -- PsioNick edit
 
 ----------------------------------------------------------
 
+-- PsioNick edit
+-- https://obsproject.com/forum/threads/trigger-after-media-source-playback-ends.118986/post-447832
+function script_tick(seconds)
+	-- If video playback has ended this tick, hide the attached source
+    local source = obs.obs_get_source_by_name(source_name)
+    if source ~= nil then
+        local state = obs.obs_source_media_get_state(source)
+        if last_state ~= state then
+            last_state = state
+            if state == obs.OBS_MEDIA_STATE_STOPPED or state == obs.OBS_MEDIA_STATE_ENDED then
+                -- local scene_source = obs.obs_get_source_by_name(scene_name)
+                -- if scene_source ~= nil then
+                --     obs.obs_frontend_set_current_scene(scene_source)
+                -- end
+
+				local scene_source = obs.obs_frontend_get_current_scene()
+				local scene = obs.obs_scene_from_source(scene_source)
+				if display_text_source_name ~= "" then
+					local text_source = obs.obs_get_source_by_name(display_text_source_name)
+					if text_source == nil then
+						return
+					end
+					-- Use obs_scene_enum_items() instead due to multiple sources having the same name
+					local text_sceneitem = obs.obs_scene_sceneitem_from_source(scene, text_source)
+					if text_sceneitem == nil then
+						return
+					end
+					obs.script_log(obs.LOG_INFO, "Text hidden")
+					obs.obs_sceneitem_set_visible(text_sceneitem, false)
+					obs.obs_source_update(text_source, nil)
+
+					obs.obs_source_release(text_source)
+					obs.obs_sceneitem_release(text_sceneitem)
+				end
+				obs.obs_source_release(scene_source)
+            end
+        end
+    end
+    obs.obs_source_release(source)
+end
+
 function try_play()
 	local replay_buffer = obs.obs_frontend_get_replay_buffer_output()
 	if replay_buffer == nil then
@@ -44,14 +85,13 @@ function try_play()
 		last_replay = path
 		local source = obs.obs_get_source_by_name(source_name)
 
-		-- PsioNick edit
-		local scene_source = obs.obs_frontend_get_current_scene()
-		local scene = obs.obs_scene_from_source(scene_source)
-		local text_source = obs.obs_get_source_by_name(display_text_source_name)
-		local text_sceneitem = obs.obs_scene_sceneitem_from_source(scene, text_source)
-		local replay_duration = obs.obs_source_media_get_duration(source)
-
 		if source ~= nil then
+			-- PsioNick edit
+			local scene_source = obs.obs_frontend_get_current_scene()
+			local scene = obs.obs_scene_from_source(scene_source)
+			local text_source = obs.obs_get_source_by_name(display_text_source_name)
+			local text_sceneitem = obs.obs_scene_sceneitem_from_source(scene, text_source)
+
 			local settings = obs.obs_data_create()
 			source_id = obs.obs_source_get_id(source)
 			if source_id == "ffmpeg_source" then
@@ -65,7 +105,8 @@ function try_play()
 				-- PsioNick edit
 				if text_source ~= nil then
 					obs.obs_sceneitem_set_visible(text_sceneitem, true)
-					obs.obs_source_update(text_source, settings)
+					obs.script_log(obs.LOG_INFO, "Text visible")
+					obs.obs_source_update(text_source, nil)
 				else
 					obs.script_log(obs.LOG_INFO, "Tried to show instant replay text, but couldn't find the source.")
 				end
@@ -94,7 +135,8 @@ function try_play()
 				-- PsioNick edit
 				if text_source ~= nil then
 					obs.obs_sceneitem_set_visible(text_sceneitem, true)
-					obs.obs_source_update(text_source, settings)
+					obs.script_log(obs.LOG_INFO, "Text visible")
+					obs.obs_source_update(text_source, nil)
 				else
 					obs.script_log(obs.LOG_INFO, "Tried to show instant replay text, but couldn't find the source.")
 				end
@@ -107,18 +149,20 @@ function try_play()
 			obs.obs_source_release(source)
 			-- PsioNick edit
 			obs.obs_source_release(scene_source)
-		end
-
-		-- PsioNick edit
-		function hide_display_text()
-			obs.obs_sceneitem_set_visible(text_sceneitem, false)
-			obs.obs_source_update(text_source, settings)
 			obs.obs_source_release(text_source)
-			obs.remove_current_callback()
+			obs.obs_sceneitem_release(text_sceneitem)
 		end
 
-		-- PsioNick edit
-		obs.timer_add(hide_display_text, replay_duration)
+		-- -- PsioNick edit
+		-- function hide_display_text()
+		-- 	obs.obs_sceneitem_set_visible(text_sceneitem, false)
+		-- 	obs.obs_source_update(text_source, settings)
+		-- 	obs.obs_source_release(text_source)
+		-- 	obs.remove_current_callback()
+		-- end
+
+		-- -- PsioNick edit
+		-- obs.timer_add(hide_display_text, replay_duration)
 
 		obs.remove_current_callback()
 	end
@@ -215,7 +259,7 @@ function script_properties()
 	if sources ~= nil then
 		for _, source in ipairs(sources) do
 			source_id = obs.obs_source_get_id(source)
-			obs.script_log(obs.LOG_INFO, source_id)
+			--obs.script_log(obs.LOG_INFO, source_id)
 			local name = obs.obs_source_get_name(source)
 			obs.obs_property_list_add_string(display_text_prop, name, name)
 		end
