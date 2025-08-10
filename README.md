@@ -1,5 +1,7 @@
 # OBS Instant Replay With Attached Sources (Tested on Windows)
 
+![Mario sleeping on Weegee's stream with live instant replay](images/weegee_sleeping.webp)
+
 This is an edit of the [instant replay OBS plugin](https://obsproject.com/forum/resources/instant-replay-vlc.621) that allows you to customize the playback by attaching any number of sources to the Media Source; they will all appear when the hotkey is pressed and be hidden when the replay ends.
 
 I made this after [Weegee](https://www.twitch.tv/weegee) wanted to attach the text "Instant Replay" to the playback, but was limited by the aforementioned plugin. Just a fun little project, as it was my first time using the OBS API.
