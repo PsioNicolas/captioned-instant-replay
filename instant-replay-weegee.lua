@@ -12,6 +12,21 @@ display_text_source_name = "" -- PsioNick edit
 ----------------------------------------------------------
 
 -- PsioNick edit
+function remove_replay_path()
+	-- Prevent video from playing on OBS startup by removing video path on OBS shutdown
+	local source = obs.obs_get_source_by_name(source_name)
+	if source ~= nil then
+		local settings = obs.obs_data_create()
+		local source_id = obs.obs_source_get_id(source)
+		obs.obs_data_set_string(settings, "local_file", "")
+		obs.obs_source_update(source, settings)
+		
+		obs.obs_data_release(settings)
+	end
+	obs.obs_source_release(source)
+end
+
+-- PsioNick edit
 -- https://obsproject.com/forum/threads/trigger-after-media-source-playback-ends.118986/post-447832
 function script_tick(seconds)
 	-- If video playback has ended this tick, hide the attached source
@@ -39,6 +54,7 @@ function script_tick(seconds)
 						return
 					end
 					obs.obs_sceneitem_set_visible(text_sceneitem, false)
+					remove_replay_path()
 					obs.obs_source_update(text_source, nil)
 
 					obs.obs_source_release(text_source)
@@ -275,6 +291,13 @@ function script_load(settings)
 	hotkey_save_array = obs.obs_data_get_array(settings, "instant_replay.clear_playlist")
 	obs.obs_hotkey_load(clear_hotkey_id, hotkey_save_array)
 	obs.obs_data_array_release(hotkey_save_array)
+end
+
+-- PsioNick edit
+function script_unload()
+	-- Originally I just had this here, but it wasn't removing the path when shutting down OBS,
+	-- so I remove it when the video ends as well
+	remove_replay_path()
 end
 
 -- A function named script_save will be called when the script is saved
