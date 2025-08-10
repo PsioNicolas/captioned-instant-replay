@@ -1,3 +1,4 @@
+-- Tested on OBS 31.1.2, Windows
 obs         = obslua
 source_name = ""
 hotkey_id   = obs.OBS_INVALID_HOTKEY_ID
