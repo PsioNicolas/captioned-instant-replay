@@ -38,7 +38,6 @@ function script_tick(seconds)
 					if text_sceneitem == nil then
 						return
 					end
-					obs.script_log(obs.LOG_INFO, "Text hidden")
 					obs.obs_sceneitem_set_visible(text_sceneitem, false)
 					obs.obs_source_update(text_source, nil)
 
@@ -105,7 +104,6 @@ function try_play()
 				-- PsioNick edit
 				if text_source ~= nil then
 					obs.obs_sceneitem_set_visible(text_sceneitem, true)
-					obs.script_log(obs.LOG_INFO, "Text visible")
 					obs.obs_source_update(text_source, nil)
 				else
 					obs.script_log(obs.LOG_INFO, "Tried to show instant replay text, but couldn't find the source.")
@@ -135,7 +133,6 @@ function try_play()
 				-- PsioNick edit
 				if text_source ~= nil then
 					obs.obs_sceneitem_set_visible(text_sceneitem, true)
-					obs.script_log(obs.LOG_INFO, "Text visible")
 					obs.obs_source_update(text_source, nil)
 				else
 					obs.script_log(obs.LOG_INFO, "Tried to show instant replay text, but couldn't find the source.")
@@ -152,17 +149,6 @@ function try_play()
 			obs.obs_source_release(text_source)
 			obs.obs_sceneitem_release(text_sceneitem)
 		end
-
-		-- -- PsioNick edit
-		-- function hide_display_text()
-		-- 	obs.obs_sceneitem_set_visible(text_sceneitem, false)
-		-- 	obs.obs_source_update(text_source, settings)
-		-- 	obs.obs_source_release(text_source)
-		-- 	obs.remove_current_callback()
-		-- end
-
-		-- -- PsioNick edit
-		-- obs.timer_add(hide_display_text, replay_duration)
 
 		obs.remove_current_callback()
 	end
